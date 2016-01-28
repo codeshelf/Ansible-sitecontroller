@@ -1,4 +1,5 @@
 ---
+# Site controllers all need the same host keys for provisioning
 - name: Copy public SSH host keys
   copy: src=ssh-keys/ssh_host_{{ item }}.pub dest=/etc/ssh/ssh_host_{{ item }}.pub owner=root group=root mode=0444
   with_items:
@@ -15,6 +16,7 @@
     - ecdsa
     - ed25519
 
+# Set up the user and service that forms the reverse tunnel
 - name: Create Phone Home User
   user: name=et
 
@@ -24,9 +26,11 @@
 - name: Copy et's Private Key
   copy: src=et_id_rsa dest=/home/et/.ssh/id_rsa owner=et group=et mode=0400
 
+# It is critical that we form a solid trust relationship with our remote side before we connect!
 - name: Copy ssh_known_hosts
   copy: src=ssh_known_hosts dest=/etc/ssh/ssh_known_hosts owner=root group=root mode=0444
 
+# Install the systemd service
 - name: Copy autossh.service
   copy: src=autossh.service dest=/etc/systemd/system/autossh.service owner=root group=root mode=0755
 
@@ -34,11 +38,13 @@
   shell: systemctl daemon-reload
 
 - name: Enable autossh service
-  service: name=autossh state=started enabled=yes
+  service: name=autossh enabled=yes
 
+# Do we need to do this? It doesn't hurt..
 - name: Set hostname
   hostname: name=provision0
 
-- name: Reboot
-  shell: reboot
+# If we get here, we are in provisioning mode, shut down and power off
+- name: Shut off
+  shell: poweroff
 
