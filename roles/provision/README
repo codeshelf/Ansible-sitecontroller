@@ -1,0 +1,11 @@
+The Codeshelf site controller provisioning process expects the fresh SC to
+phone home on port 8022 and provide SSH on port 9999.
+
+You must copy in a proper ssh_known_hosts, et_id_rsa, and ssh-keys for this
+role to do much good!
+
+WARNING!
+
+We force a reboot after this role completes!
+
+WARNING!

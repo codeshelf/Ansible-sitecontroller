@@ -1,0 +1,6 @@
+This is the base role. It was written to Debian Jessie and is intended to be
+used against a default image produced by the Devops team. It does not attempt
+to remove "evil" configurations, so it is assumed you essentially 
+"debootstrap'ed" a system from clean repositories on a clean build host!
+
+Please set an appropriate SSH key for the Ansible user in tasks/main.yml!

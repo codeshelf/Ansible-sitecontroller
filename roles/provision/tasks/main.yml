@@ -1,0 +1,44 @@
+---
+- name: Copy public SSH host keys
+  copy: src=ssh-keys/ssh_host_{{ item }}.pub dest=/etc/ssh/ssh_host_{{ item }}.pub owner=root group=root mode=0444
+  with_items:
+    - dsa
+    - rsa
+    - ecdsa
+    - ed25519
+
+- name: Copy private SSH host keys
+  copy: src=ssh-keys/ssh_host_{{ item }} dest=/etc/ssh/ssh_host_{{ item }} owner=root group=root mode=0400
+  with_items:
+    - dsa
+    - rsa
+    - ecdsa
+    - ed25519
+
+- name: Create Phone Home User
+  user: name=et
+
+- name: Create et's SSH Directory
+  file: path=/home/et/.ssh owner=et group=et mode=0700 state=directory
+
+- name: Copy et's Private Key
+  copy: src=et_id_rsa dest=/home/et/.ssh/id_rsa owner=et group=et mode=0400
+
+- name: Copy ssh_known_hosts
+  copy: src=ssh_known_hosts dest=/etc/ssh/ssh_known_hosts owner=root group=root mode=0444
+
+- name: Copy autossh.service
+  copy: src=autossh.service dest=/etc/systemd/system/autossh.service owner=root group=root mode=0755
+
+- name: Reload systemd for new service
+  shell: systemctl daemon-reload
+
+- name: Enable autossh service
+  service: name=autossh state=started enabled=yes
+
+- name: Set hostname
+  hostname: name=provision0
+
+- name: Reboot
+  shell: reboot
+

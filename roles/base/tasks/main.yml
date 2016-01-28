@@ -1,0 +1,154 @@
+---
+# Ensure apt is securely appropriately
+- name: Configure Package Management
+  copy: src=sources.list dest=/etc/apt/sources.list
+
+- name: Add Debian Archive 8 Key
+  apt_key: url=https://ftp-master.debian.org/keys/archive-key-8.asc state=present
+
+- name: Add Debian Archive 8 Security Key
+  apt_key: url=https://ftp-master.debian.org/keys/archive-key-8-security.asc state=present
+
+- name: Update Package Manager Caches
+  apt: update_cache=yes
+
+# First big step: ensure we have accurate time
+- name: Install NTP
+  apt: name=ntp state=present
+
+- name: Configure NTP Service
+  service: name=ntp state=started enabled=yes
+
+# Begin the package selection process
+- name: Install Useful Packages
+  apt: name={{ item }} state=present
+  with_items:
+    - openssh-client
+    - openssh-server
+    - cron
+    - lsof
+    - telnet
+    - tmux
+    - screen
+    - vim
+    - wget
+    - sudo
+    - dstat
+    - ethtool
+    - pwgen
+    - autossh
+    - logrotate
+    - rsyslog
+    - rsync
+
+- name: Remove Useless Packages
+  apt: name={{ item }} state=absent
+  with_items:
+    - nano
+    - joe
+    - nfs-kernel-server
+    - autofs
+    - rsh-client
+    - rsh-server
+    - rsh-redone-client
+    - rsh-redone-server
+
+# Finally, upgrade all OS packages
+- name: Upgrade Operating System
+  apt: upgrade=yes
+
+# Configure the local user for Ansible
+- name: Create local user
+  user: name=ansible
+
+- name: Set ansible's Accepted Keys
+  authorized_key: manage_dir=yes user=ansible key="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDJNWul6apnsYD6Q5kOxi+kzvMaxgp6OG7WubKtvf1OMrP1l3Fjk9/O0DZ9x/lRxTQfsKvm8aUMELJRwixjJCoUoqdR2iCZVlNu17hpfCHG8xwC/HS0Q2dVlGBq8JdGa6RIEmOXiFl3FSmsCVyOIIbPMe7wHwQAnI/WbzPTZNZjnT/VEf8GmKjRkD6ILRlreF1WU5nON6L5PTEITcrZqc18zxZZHyqRqi+IRcVC+T/3Tj5ac3yQ0UU4ZQkzlQGOEuW3hFesP8/dm01yfCVeCrc5FVHCFnXudbi938fQBC0vb0HiRd832ouAsNA4JelB3x/aWciF7gFn7w2hi5XEeecLivLBtULq8sYqQo5F42H6/w+pIu/0MwqYf995vznQvulp60ZJKHprGawbiMKhMgMMkJINXLW+V04oSYLcGmNH8hKy77WE0LM3tq46Afx/aNtG1UloSyZGhH4ZqT0xipO0sCjvsb5jjMKyQ7OB6T57NGrR1V1NmrmJt3XKHRQwM5J36LxD/WDbzwbzetZfTlDjH8WXiGWbA25flPnD93EYqUQcMy+jFkyKFhnmTg21w7QsJnZi5Ho8xdlzNxoJLgBO4GFwbIQkJiXmTTvpLIZyEuu9jvvyXrjhDlMwX+2zRBgUMukX239+0yThFo3ugqqmXao8LmKXAxrjuCV39J+P0Q== alex.younts@codeshelf.com"
+
+- name: Set Up Ansible Tmp Directory
+  file: path=/home/ansible/files state=directory
+
+# Root login should be disabled
+- name: Remove root's SSH Keys
+  file: path=/root/.ssh force=yes state=absent
+
+# Ensure there is no root password
+- name: Set root password
+  user: name=root password="!!"
+
+# Ensure there is no ansible password
+- name: Set root password
+  user: name=ansible password="!!"
+
+# Let Ansible use sudo
+- name: Copy sudoers
+  copy: src=sudoers dest=/etc/sudoers owner=root group=root mode=0440
+
+# Copy in a secure SSHd configuration file
+- name: Copy sshd
+  copy: src=sshd_config dest=/etc/ssh/sshd_config owner=root group=root mode=0440
+  notify:
+    - restart sshd
+
+# Just to be paranoid, provide unique DH parameters
+- name: Copy ssh moduli file
+  copy: src=ssh_moduli dest=/etc/ssh/moduli owner=root group=root mode=0444
+
+# Put in place a restrictive firewall
+- name: Copy Firewall Script
+  copy: src=firewall dest=/etc/network/if-up.d/firewall owner=root group=root mode=0550
+
+# Secure the local terminal
+- name: Disable SysRq Key
+  sysctl: name=kernel.sysrq value=0 reload=yes
+
+# disable a bunch of less-than-necessary network issues
+- name: Disable IPv4 Secure Redirects
+  sysctl: name=net.ipv4.conf.all.secure_redirects value=0 reload=yes
+
+- name: Disable IPv4 Redirects
+  sysctl: name=net.ipv4.conf.all.accept_redirects value=0 reload=yes
+
+- name: Disable IPv4 Source Routed packets
+  sysctl: name=net.ipv4.conf.default.accept_source_route value=0 reload=yes
+
+- name: Enable reverse path filtering
+  sysctl: name=net.ipv4.conf.all.rp_filter value=1 reload=yes
+
+- name: Enable reverse path filtering drops
+  sysctl: name=net.ipv4.conf.default.rp_filter value=1 reload=yes
+
+- name: Disable IPv6 ICMP Redirects
+  sysctl: name=net.ipv6.conf.default.accept_redirects value=0 reload=yes
+
+- name: Disable IPv4 ICMP Redirect Sending
+  sysctl: name=net.ipv4.conf.all.send_redirects value=0 reload=yes
+
+- name: Disable by default sending ICMP redirects
+  sysctl: name=net.ipv4.conf.default.send_redirects value=0 reload=yes
+
+# Prevent a syn flood from breaking the network stack
+- name: Enable syncookies
+  sysctl: name=net.ipv4.tcp_syncookies value=1 reload=yes
+
+# Disable Ctrl-alt-del
+- name: Disable Ctrl-Alt-Del
+  service: name=ctrl-alt-del.target enabled=no
+
+# Disable core file generation
+- name: Copy limits.conf
+  copy: src=limits.conf dest=/etc/security/limits.conf
+
+# Disable usb-storage and usbhd kernel modules
+- name: Copy USB Blacklist
+  copy: src=blacklist-usb.conf dest=/etc/modprobe.d/blacklist-usb.conf
+
+- name: Copy Bluetooth Blacklist
+  copy: src=blacklist-bluetooth.conf dest=/etc/modprobe.d/blacklist-bluetooth.conf
+
+- name: Copy blacklist of poorly written infrastructure
+  copy: src=blacklist-security.conf dest=/etc/modprobe.d/blacklist-security.conf
+
+# Start firewall
+- name: Start the Firewall
+  shell: /etc/network/if-up.d/firewall
+

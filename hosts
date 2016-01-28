@@ -1,0 +1,2 @@
+# Defines the list of hosts, only one
+localhost ansible_connection=local
